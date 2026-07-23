@@ -1,0 +1,117 @@
+
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EcoCatch</title>
+<style>
+body{margin:0;overflow:hidden;font-family:Arial;background:#9ddcff;touch-action:none;-webkit-user-select:none;user-select:none}
+#hud{position:fixed;top:10px;left:10px;right:10px;display:flex;justify-content:space-between;font-weight:bold;font-size:20px}
+#game{position:relative;width:100vw;height:100vh}
+#basket{position:absolute;bottom:12px;width:80px;height:95px}
+.item{position:absolute;font-size:40px}
+.btn{position:fixed;bottom:10px;width:70px;height:70px;border-radius:50%;background:#ffffffaa;border:1px solid #444;display:flex;align-items:center;justify-content:center;font-size:34px}
+#l{left:10px}#r{right:10px}
+#end{display:none;position:fixed;inset:0;background:#0008;color:#fff;align-items:center;justify-content:center;flex-direction:column}
+
+#menu{position:fixed;inset:0;background:linear-gradient(#87ceeb,#4caf50);display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9999}
+</style>
+</head>
+<body><div id="menu"><h1>EcoCatch</h1><button id="play">Jogar</button></div>
+<div id="hud"><span id="s"></span><span id="t"></span><span id="v"></span></div>
+<div id="game">
+
+<div id="basket">
+<svg width="80" height="95" viewBox="0 0 80 95">
+<defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#777"/><stop offset="100%" stop-color="#444"/>
+</linearGradient></defs>
+<ellipse cx="40" cy="12" rx="28" ry="8" fill="#888"/>
+<rect x="12" y="12" width="56" height="64" rx="6" fill="url(#g)" stroke="#222" stroke-width="2"/>
+<ellipse cx="40" cy="76" rx="28" ry="8" fill="#333"/>
+<circle cx="40" cy="44" r="16" fill="#ffd400" stroke="#111" stroke-width="2"/>
+<path d="M40 30 L47 42 L40 42 L47 56 L33 46 L40 46 L33 30 Z" fill="#111"/>
+</svg>
+</div>
+
+</div>
+<div id="l" class="btn">⬅️</div>
+<div id="r" class="btn">➡️</div>
+<div id="end"><h1>Fim de jogo</h1><h2 id="f"></h2><button onclick="location.reload()">Reiniciar</button></div>
+<script>
+const game=document.getElementById("game");
+const basket=document.getElementById("basket");
+const l=document.getElementById("l");
+const r=document.getElementById("r");
+const s=document.getElementById("s");
+const t=document.getElementById("t");
+const v=document.getElementById("v");
+const end=document.getElementById("end");
+const f=document.getElementById("f");
+const menu=document.getElementById("menu");
+const play=document.getElementById("play");
+const good=["📱","💻","🔋","🖨️","⌨️","🖱️","📺","🔌"],bad=["🍌","🍎","🥤","🧻"];
+let W=innerWidth,H=innerHeight,x=W/2,score=0,time=60,lives=5;
+let speed=3.5,spawnDelay=700,lastSpawn=0,over=false,started=false;
+const items=[];
+function hud(){s.textContent="♻️ "+score;t.textContent="⏱️ "+time;v.textContent="❤️".repeat(lives)}
+hud();
+function pos(){if(x<0)x=0;if(x>W-60)x=W-60;basket.style.left=x+"px";}
+pos();
+addEventListener("resize",()=>{W=innerWidth;H=innerHeight;pos();});
+let left=false,right=false;
+["touchstart","mousedown"].forEach(ev=>{
+ l.addEventListener(ev,e=>{e.preventDefault();left=true;},{passive:false});
+ r.addEventListener(ev,e=>{e.preventDefault();right=true;},{passive:false});
+});
+["touchend","touchcancel","mouseup","mouseleave"].forEach(ev=>{
+ l.addEventListener(ev,()=>left=false);
+ r.addEventListener(ev,()=>right=false);
+});
+document.onmousemove=e=>{x=e.clientX-28;pos();}
+document.addEventListener("touchmove",e=>{
+ e.preventDefault();
+ if(e.touches.length){x=e.touches[0].clientX-28;pos();}
+},{passive:false});
+document.onkeydown=e=>{if(e.key=="ArrowLeft")left=true;if(e.key=="ArrowRight")right=true;}
+document.onkeyup=e=>{if(e.key=="ArrowLeft")left=false;if(e.key=="ArrowRight")right=false;}
+function diff(){let lv=Math.floor(score/10);speed=3.5+lv*0.5;spawnDelay=Math.max(300,700-lv*40);}
+setInterval(()=>{if(!started||over)return;time--;hud();if(time<=0)finish();},1000);
+function finish(){over=true;end.style.display="flex";end.style.display="flex";f.textContent="Pontuação: "+score;}
+function spawn(){
+ const el=document.createElement("div");
+ el.className="item";
+ el.good=Math.random()>0.35;
+ el.textContent=(el.good?good:bad)[Math.floor(Math.random()*(el.good?good.length:bad.length))];
+ el.x=Math.random()*(W-40);el.y=-40;el.v=speed+Math.random();
+ el.style.left=el.x+"px";
+ game.appendChild(el);
+ items.push(el);
+}
+function loop(ts){
+ if(over)return;
+ if(left)x-=8;if(right)x+=8;pos();
+ if(ts-lastSpawn>spawnDelay){spawn();lastSpawn=ts;}
+ const br=basket.getBoundingClientRect();
+ for(let i=items.length-1;i>=0;i--){
+   const it=items[i];
+   it.y+=it.v;
+   it.style.top=it.y+"px";
+   const ir=it.getBoundingClientRect();
+   if(ir.left<br.right&&ir.right>br.left&&ir.top<br.bottom&&ir.bottom>br.top){
+      if(it.good){score++;time+=2;diff();}
+      else{lives--;if(lives<=0){hud();finish();}}
+      hud();
+      it.remove();
+      items.splice(i,1);
+      continue;
+   }
+   if(it.y>H){it.remove();items.splice(i,1);}
+ }
+ if(started)requestAnimationFrame(loop);
+}
+play.onclick=()=>{started=true;menu.remove();requestAnimationFrame(loop);};
+</script>
+</body>
+</html>
